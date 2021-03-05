@@ -1,81 +1,66 @@
 import AppKit
 import Combine
 
-public final class PasteboardPublisher: Publisher {
+/// A custom `Subscription` to capture changes to the items in the given `NSPasteboard`
+public final class PasteboardSubscription<SubscriberType: Subscriber, Pasteboard: NSPasteboard>: Subscription where SubscriberType.Input == [NSPasteboardItem] {
+
+	private var subscriber: SubscriberType?
+	private let pasteboard: NSPasteboard
+	private var timerPublisher: AnyCancellable?
+	private var internalChangeCount: Int
+
+	public init(subscriber: SubscriberType, pasteboard: Pasteboard) {
+		self.subscriber = subscriber
+		self.pasteboard = pasteboard
+		internalChangeCount = self.pasteboard.changeCount
+		startTimer()
+	}
+
+	private func startTimer() {
+		timerPublisher = Timer.publish(every: 0.01, on: .main, in: .default)
+			.autoconnect()
+			.sink { [weak self] _ in
+				self?.maybePublishUpdatedPasteboardItems()
+			}
+	}
+
+	// We do nothing here as we only want to send events when they occur
+	public func request(_ demand: Subscribers.Demand) {}
+
+	public func cancel() {
+		timerPublisher?.cancel()
+		subscriber = nil
+	}
+
+	private func maybePublishUpdatedPasteboardItems() {
+		if internalChangeCount != pasteboard.changeCount,
+		   let pasteboardItems = pasteboard.pasteboardItems {
+			_ = subscriber?.receive(pasteboardItems)
+			internalChangeCount = pasteboard.changeCount
+		}
+	}
+}
+
+/// A custom `Publisher` that publishes events when the contents of the given `NSPasteboard` changes
+public struct PasteboardPublisher: Publisher {
 	public typealias Output = [NSPasteboardItem]
 	public typealias Failure = Never
 
-	private let timerPublisher: Timer.TimerPublisher
+	private let pasteboard: NSPasteboard
 
-	public init(every interval: TimeInterval = 0.01,
-		 tolerance: TimeInterval? = nil,
-		 on runLoop: RunLoop = .main,
-		 in mode: RunLoop.Mode = .default,
-		 options: RunLoop.SchedulerOptions? = nil) {
-
-		timerPublisher = Timer.publish(
-			every: interval,
-			tolerance: tolerance,
-			on: runLoop,
-			in: mode,
-			options: options
-		)
+	public init(pasteboard: NSPasteboard = NSPasteboard.general) {
+		self.pasteboard = pasteboard
 	}
 
 	public func receive<S>(subscriber: S) where S : Subscriber, Never == S.Failure, [NSPasteboardItem] == S.Input {
-		subscriber.receive(subscription: Inner(parent: self, downstream: subscriber))
+		let subscription = PasteboardSubscription(subscriber: subscriber, pasteboard: pasteboard)
+		subscriber.receive(subscription: subscription)
 	}
+}
 
-	private typealias Parent = PasteboardPublisher
-
-	private final class Inner<Downstream: Subscriber>: Subscription where Downstream.Input == Output, Downstream.Failure == Failure {
-
-		typealias Input = Downstream.Input
-		typealias Failure = Downstream.Failure
-
-		private let pasteboard = NSPasteboard.general
-		private var parent: Parent?
-		private var downstream: Downstream?
-		private var timer: AnyCancellable?
-		private var internalChangeCount = -1
-
-		init(parent: Parent, downstream: Downstream) {
-			self.parent = parent
-			self.downstream = downstream
-		}
-
-		func request(_ demand: Subscribers.Demand) {
-			precondition(demand > 0, "Invalid request of zero demand")
-
-			guard let parent = parent else { return }
-
-			if timer == nil {
-				internalChangeCount = pasteboard.changeCount
-				timer = parent.timerPublisher.autoconnect().sink { [weak self] _ in
-					guard let self = self else { return }
-					self.pollAndMaybeSend()
-				}
-			}
-		}
-
-		func cancel() {
-			guard parent != nil else { return }
-			timer?.cancel()
-			timer = nil
-			downstream = nil
-			parent = nil
-		}
-
-		func pollAndMaybeSend() {
-			guard internalChangeCount != pasteboard.changeCount,
-				  parent != nil,
-				  let downstream = downstream,
-				  let pasteboardItems = pasteboard.pasteboardItems else {
-				return
-			}
-
-			internalChangeCount = pasteboard.changeCount
-			_ = downstream.receive(pasteboardItems)
-		}
+// Extend `NSPasteboard` to add a default publisher method
+public extension NSPasteboard {
+	func publisher() -> PasteboardPublisher {
+		return PasteboardPublisher(pasteboard: self)
 	}
 }

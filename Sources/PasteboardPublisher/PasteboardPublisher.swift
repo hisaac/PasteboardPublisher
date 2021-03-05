@@ -3,7 +3,6 @@ import Combine
 
 /// A custom `Subscription` to capture changes to the items in the given `NSPasteboard`
 public final class PasteboardSubscription<SubscriberType: Subscriber, Pasteboard: NSPasteboard>: Subscription where SubscriberType.Input == [NSPasteboardItem] {
-
 	private var subscriber: SubscriberType?
 	private let pasteboard: NSPasteboard
 	private var timerPublisher: AnyCancellable?
@@ -52,15 +51,15 @@ public struct PasteboardPublisher: Publisher {
 		self.pasteboard = pasteboard
 	}
 
-	public func receive<S>(subscriber: S) where S : Subscriber, Never == S.Failure, [NSPasteboardItem] == S.Input {
+	public func receive<S>(subscriber: S) where S: Subscriber, S.Failure == Never, S.Input == [NSPasteboardItem] {
 		let subscription = PasteboardSubscription(subscriber: subscriber, pasteboard: pasteboard)
 		subscriber.receive(subscription: subscription)
 	}
 }
 
 // Extend `NSPasteboard` to add a default publisher method
-public extension NSPasteboard {
-	func publisher() -> PasteboardPublisher {
+extension NSPasteboard {
+	public func publisher() -> PasteboardPublisher {
 		return PasteboardPublisher(pasteboard: self)
 	}
 }

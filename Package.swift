@@ -8,7 +8,7 @@ let package = Package(
 	products: [
 		.library(
 			name: "PasteboardPublisher",
-			targets: ["PasteboardPublisher"]),
+			targets: ["PasteboardPublisher"])
 	],
 	targets: [
 		.target(
@@ -16,6 +16,6 @@ let package = Package(
 			dependencies: []),
 		.testTarget(
 			name: "PasteboardPublisherTests",
-			dependencies: ["PasteboardPublisher"]),
+			dependencies: ["PasteboardPublisher"])
 	]
 )

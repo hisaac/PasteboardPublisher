@@ -15,16 +15,18 @@ final class PasteboardPublisherTests: XCTestCase {
 		testPasteboard.releaseGlobally()
 	}
 
-	func testPublishOnPasteboardChange() {
-		let mockPasteboardItemArray = [NSPasteboardItem()]
-		var changeCount = testPasteboard.changeCount
-		let pasteboardPublisher = testPasteboard.publisher()
+	func testPublishOnPasteboardChange() throws {
+		// Given
+		var changeCount = testPasteboard.changeCount // 0
+		_ = testPasteboard.publisher()
 			.sink { _ in
-				changeCount += 1
+				changeCount += 1 // 1
 			}
 
-		testPasteboard.clearContents()
-		XCTAssertTrue(testPasteboard.writeObjects(mockPasteboardItemArray))
+		// When
+		XCTAssertTrue(testPasteboard.writeObjects([]))
+
+		// Then
 		XCTAssertEqual(changeCount, testPasteboard.changeCount)
 	}
 }

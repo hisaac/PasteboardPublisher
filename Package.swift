@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version: 5.7
 
 import PackageDescription
 
@@ -8,14 +8,16 @@ let package = Package(
 	products: [
 		.library(
 			name: "PasteboardPublisher",
-			targets: ["PasteboardPublisher"])
+			targets: ["PasteboardPublisher"]
+		),
 	],
 	targets: [
 		.target(
-			name: "PasteboardPublisher",
-			dependencies: []),
+			name: "PasteboardPublisher"
+		),
 		.testTarget(
 			name: "PasteboardPublisherTests",
-			dependencies: ["PasteboardPublisher"])
+			dependencies: ["PasteboardPublisher"]
+		),
 	]
 )
